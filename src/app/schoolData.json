@@ -1,0 +1,92 @@
+{
+  "schools": [
+    {
+      "schoolCode": "890256",
+      "schoolName": "Tagore International School Vasant Vihar"
+    },
+    {
+      "schoolCode": "213847",
+      "schoolName": "Tagore International School East of Kailash"
+    },
+    {
+      "schoolCode": "917266",
+      "schoolName": "ST. MARK'S SR. SEC. PUBLIC SCHOOL"
+    },
+    {
+      "schoolCode": "281956",
+      "schoolName": "Air force Golden Jubilee Institute "
+    },
+    {
+      "schoolCode": "827047",
+      "schoolName": "Nirmal Bhartia School"
+    },
+    {
+      "schoolCode": "212366",
+      "schoolName": "Amity International School Sector-46"
+    },
+    {
+      "schoolCode": "329856",
+      "schoolName": "BAL BHARATI PUBLIC SCHOOL"
+    },
+    {
+      "schoolCode": "130247",
+      "schoolName": "The Indian School"
+    },
+    {
+      "schoolCode": "231966",
+      "schoolName": "MOUNT ST. MARY'S SCHOOL"
+    },
+    {
+      "schoolCode": "984156",
+      "schoolName": "DPS ROHINI"
+    },
+    {
+      "schoolCode": "423047",
+      "schoolName": "CHINMAYA VIDYALAYA"
+    },
+    {
+      "schoolCode": "429966",
+      "schoolName": "Delhi Public School, R. K. Puram"
+    },
+    {
+      "schoolCode": "975856",
+      "schoolName": "Lotus Valley International School Gurugram"
+    },
+    {
+      "schoolCode": "498847",
+      "schoolName": "St. Columba’s School "
+    },
+    {
+      "schoolCode": "108466",
+      "schoolName": "New Era Public School"
+    },
+    {
+      "schoolCode": "320356",
+      "schoolName":"Delhi Public School, Gurgaon"
+    },
+    {
+      "schoolCode":"490947",
+      "schoolName": "Delhi Public School Sushant Lok"
+    },
+    {
+      "schoolCode": "768966",
+      "schoolName": "Nirmal Bhartia School"
+    },
+    {
+      "schoolCode": "342416",
+      "schoolName": "Indraprastha International School"
+    },
+    {
+      "schoolCode":"452713",
+      "schoolName": "Mayoor School Noida"
+    },
+    {
+      "schoolCode": "347812",
+      "schoolName": "Prudence School Ashok Vihar"
+    },
+    {
+      "schoolCode": "123456",
+      "schoolName": "Crypt Ka Raja"
+    }
+  ]
+}

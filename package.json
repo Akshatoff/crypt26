@@ -1,0 +1,32 @@
+{
+  "name": "crypt",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbo",
+    "build": "next build",
+    "postinstall": "prisma generate",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/material": "^7.0.1",
+    "@prisma/client": "^6.5.0",
+    "animate.css": "^4.1.1",
+    "better-auth": "^1.2.4",
+    "framer-motion": "^12.6.3",
+    "next": "15.2.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.24",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "prisma": "^6.5.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}
