@@ -1,12 +1,23 @@
+import { auth } from "@/server/auth";
+import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { authClient } from "@/lib/auth-client";
 
 export async function POST() {
   try {
-    await authClient.signOut(); // assumes BetterAuth exposes this
+    // Revoke the session server-side
+    const session = await auth.api.getSession({ headers: await headers() });
+
+    if (session?.session?.token) {
+      await auth.api.revokeSession({
+        headers: await headers(),
+        body: { token: session.session.token },
+      });
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error logging out:", error);
-    return NextResponse.json({ error: "Failed to logout" }, { status: 500 });
+    console.error("Logout error:", error);
+    // Return success anyway — client will redirect regardless
+    return NextResponse.json({ success: true });
   }
 }

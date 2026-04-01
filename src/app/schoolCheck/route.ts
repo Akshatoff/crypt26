@@ -1,43 +1,37 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/server/db"; // your Prisma client
+import { prisma } from "@/server/db";
 import schoolData from "@/app/schoolData.json";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 
 export async function POST(req: Request) {
   try {
-    const { schoolCode } = await req.json();
+    const body = await req.json();
+    const { schoolCode } = body;
 
-    if (!schoolCode) {
+    if (!schoolCode || typeof schoolCode !== "string") {
       return NextResponse.json(
-        { error: "Missing School Code" },
-        { status: 400 }
+        { error: "Missing school code" },
+        { status: 400 },
       );
     }
-    const data = await auth.api.getSession({
-      headers: await headers(),
-    });
 
-    if (!data || !data.user || !data.user.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const session = await auth.api.getSession({ headers: await headers() });
 
-    if (!data?.user?.name) {
+    if (!session?.user?.email || !session?.user?.name) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const isValidSchool = schoolData.schools.find(
-      (school) => school.schoolCode === schoolCode
+      (school) => school.schoolCode === schoolCode,
     );
 
     if (!isValidSchool) {
       return NextResponse.json(
-        { error: "Invalid School Code" },
-        { status: 400 }
+        { error: "Invalid school code" },
+        { status: 400 },
       );
     }
-
-    console.log("Updating user in database...");
 
     const existingSchool = await prisma.school.findUnique({
       where: { code: schoolCode },
@@ -45,39 +39,39 @@ export async function POST(req: Request) {
 
     if (!existingSchool) {
       return NextResponse.json(
-        { error: "Invalid school code: No such school exists" },
-        { status: 400 }
+        { error: "School not found in database" },
+        { status: 400 },
       );
     }
 
     const existingUser = await prisma.user.findUnique({
-      where: { email: data.user.email },
-      select: { id: true },
+      where: { email: session.user.email },
+      select: { id: true, schoolCode: true },
     });
 
     if (!existingUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Prevent switching school codes once set
+    if (existingUser.schoolCode && existingUser.schoolCode !== schoolCode) {
       return NextResponse.json(
-        { error: "User not found in database" },
-        { status: 404 }
+        { error: "You are already assigned to a school and cannot switch." },
+        { status: 403 },
       );
     }
 
-    // Now we update, knowing that the school exists
-    const user = await prisma.user.update({
+    await prisma.user.update({
       where: { id: existingUser.id },
       data: { schoolCode },
     });
 
     return NextResponse.json({
-      message: "School Code verified",
-      user,
+      message: "School code verified",
       schoolName: isValidSchool.schoolName,
     });
   } catch (error) {
-    console.error("🔥 Server Error:", error); // Logs full error stack
-    return NextResponse.json(
-      { error: "Server error", details: error },
-      { status: 500 }
-    );
+    console.error("schoolCheck error:", error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

@@ -1,20 +1,54 @@
 import { auth } from "@/server/auth";
-import { prisma } from "@/server/db"; // your Prisma client
+import { prisma } from "@/server/db";
+import { getQuestion, TOTAL_LEVELS } from "@/server/questions";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import question from "@/app/question.json";
 
-export async function POST(req: Request) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-  if (!session || !session.user?.email) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+// Simple in-memory rate limiter: max 10 attempts per user per minute
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function isRateLimited(userId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(userId);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(userId, { count: 1, resetAt: now + 60_000 });
+    return false;
   }
 
-  const body = await req.json();
-  const { answer } = body;
+  if (entry.count >= 10) {
+    return true;
+  }
 
+  entry.count++;
+  return false;
+}
+
+const normalize = (str: string) => str.replace(/\s+/g, "").toLowerCase();
+
+export async function POST(req: Request) {
+  const session = await auth.api.getSession({ headers: await headers() });
+
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Parse body safely
+  let answer: string;
+  try {
+    const body = await req.json();
+    answer = body?.answer;
+    if (typeof answer !== "string" || !answer.trim()) {
+      return NextResponse.json({ error: "Invalid answer" }, { status: 400 });
+    }
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
+
+  // Fetch user with school
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
     include: { School: true },
@@ -24,112 +58,155 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  const currentLevel = user.School?.level ?? 1;
-  const currentQuestion = question.levels[currentLevel - 1];
-  const normalize = (str: string) => str.replace(/\s+/g, "").toLowerCase();
-  // console.log("Expected:", currentQuestion.answer.toLowerCase().trim());
-  // console.log("Received:", answer.trim().toLowerCase());
+  if (user.banned) {
+    return NextResponse.json({ error: "Account banned" }, { status: 403 });
+  }
 
-  const isCorrect = normalize(currentQuestion.answer) === normalize(answer);
+  if (!user.schoolCode || !user.School) {
+    return NextResponse.json({ error: "No school assigned" }, { status: 400 });
+  }
 
-  if (isCorrect) {
-    const existingCorrectAttempt = await prisma.attempt.findFirst({
-      where: {
-        level: currentLevel,
-        schoolCode: user.schoolCode ?? undefined,
-        userAttempt: {
-          equals: currentQuestion.answer,
-          mode: "insensitive",
-        },
+  // Rate limit check
+  if (isRateLimited(user.id)) {
+    return NextResponse.json(
+      { error: "Too many attempts. Wait a minute before trying again." },
+      { status: 429 },
+    );
+  }
+
+  const currentLevel = user.School.level;
+
+  // Hunt finished
+  if (currentLevel > TOTAL_LEVELS) {
+    return NextResponse.json(
+      { error: "You have completed all levels!" },
+      { status: 400 },
+    );
+  }
+
+  // Get correct answer SERVER-SIDE ONLY
+  const questionData = getQuestion(currentLevel);
+
+  if (!questionData) {
+    return NextResponse.json(
+      { error: "Question not found for this level" },
+      { status: 500 },
+    );
+  }
+
+  const isCorrect = normalize(questionData.answer) === normalize(answer);
+
+  // Always log the attempt
+  await prisma.attempt.create({
+    data: {
+      user_id: user.id,
+      school_id: user.schoolCode,
+      userAttempt: answer.slice(0, 500), // cap length to prevent abuse
+      level: currentLevel,
+      schoolCode: user.schoolCode,
+      userId: user.id,
+    },
+  });
+
+  if (!isCorrect) {
+    return NextResponse.json({ success: false, message: "Wrong answer" });
+  }
+
+  // ── Correct answer path ──────────────────────────────────────────────────
+
+  // Check if this school already answered this level correctly
+  const schoolAlreadySolved = await prisma.attempt.findFirst({
+    where: {
+      level: currentLevel,
+      schoolCode: user.schoolCode,
+      userAttempt: {
+        equals: questionData.answer,
+        mode: "insensitive",
       },
-    });
-    console.log("existingCorrectAttempt:", !!existingCorrectAttempt);
+      // Exclude the attempt we just created by checking createdAt < now-1s
+      // (We already created the new attempt above, so count > 1 means previously solved)
+    },
+  });
 
-    if (!existingCorrectAttempt) {
-      const uniqueSchoolCount = await prisma.attempt.findMany({
+  // Count distinct schools that solved this level (for scoring position)
+  const solverCount = await prisma.attempt.groupBy({
+    by: ["schoolCode"],
+    where: {
+      level: currentLevel,
+      userAttempt: {
+        equals: questionData.answer,
+        mode: "insensitive",
+      },
+    },
+  });
+
+  // If school solved it before, just advance their level (no extra score)
+  // solverCount includes this school now since we inserted the attempt
+  const schoolIndex = solverCount.findIndex(
+    (s) => s.schoolCode === user.schoolCode,
+  );
+  const isFirstSolveForSchool =
+    schoolIndex === 0 ||
+    !(await prisma.attempt
+      .findFirst({
         where: {
           level: currentLevel,
-          userAttempt: {
-            equals: currentQuestion.answer,
-            mode: "insensitive",
+          schoolCode: user.schoolCode,
+          userAttempt: { equals: questionData.answer, mode: "insensitive" },
+          // find an attempt before the one we just created
+          id: { not: undefined },
+        },
+      })
+      .then(async (a) => {
+        // Check if there was a prior correct attempt (before this one)
+        const priorCorrect = await prisma.attempt.count({
+          where: {
+            level: currentLevel,
+            schoolCode: user.schoolCode,
+            userAttempt: { equals: questionData.answer, mode: "insensitive" },
           },
-        },
-        select: {
-          schoolCode: true,
-        },
-        distinct: ["schoolCode"],
-      });
+        });
+        return priorCorrect > 1; // more than 1 means a prior one existed
+      }));
 
-      const position = uniqueSchoolCount.length;
-      const scoreToAward = Math.max(100 - position * 10, 10);
+  const priorCorrectCount = await prisma.attempt.count({
+    where: {
+      level: currentLevel,
+      schoolCode: user.schoolCode,
+      userAttempt: { equals: questionData.answer, mode: "insensitive" },
+    },
+  });
 
-      if (!user.schoolCode) {
-        return NextResponse.json(
-          { error: "No school code found for user" },
-          { status: 400 }
-        );
-      }
+  const isFirstSolveForThisSchool = priorCorrectCount === 1; // only the one we just inserted
 
-      await prisma.school.update({
-        where: {
-          code: user.schoolCode,
-        },
-        data: {
-          score: { increment: scoreToAward },
-          level: currentLevel + 1,
-        },
-      });
-      console.log("Successfully updated school level.");
-    }
-
-    await prisma.attempt.create({
-      data: {
-        user_id: user.id,
-        school_id: user.schoolCode ?? "",
-        userAttempt: answer,
+  if (isFirstSolveForThisSchool) {
+    // Position among ALL schools (0-indexed): how many distinct schools solved before us
+    const priorSolvers = await prisma.attempt.groupBy({
+      by: ["schoolCode"],
+      where: {
         level: currentLevel,
-        schoolCode: user.schoolCode,
-        userId: user.id,
+        userAttempt: { equals: questionData.answer, mode: "insensitive" },
+        schoolCode: { not: user.schoolCode }, // exclude ourselves
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      nextLevel: currentLevel + 1,
-    });
-  } else {
-    await prisma.attempt.create({
+    const position = priorSolvers.length; // 0 = first school, 1 = second, etc.
+    const scoreToAward = Math.max(100 - position * 10, 10);
+
+    await prisma.school.update({
+      where: { code: user.schoolCode },
       data: {
-        user_id: user.id,
-        school_id: user.schoolCode ?? "",
-        userAttempt: answer,
-        level: currentLevel,
-        schoolCode: user.schoolCode,
-        userId: user.id,
+        score: { increment: scoreToAward },
+        level: { increment: 1 },
       },
     });
-
-    return NextResponse.json({ success: false, message: "Wrong Answer" });
   }
+
+  const nextLevel = currentLevel + 1;
+
+  return NextResponse.json({
+    success: true,
+    nextLevel,
+    isComplete: nextLevel > TOTAL_LEVELS,
+  });
 }
-
-// await prisma.attempt.create({
-//   data: {
-//     school_id: user.schoolCode || "",
-//     user_id: user.id,
-//     userAttempt: answer,
-//     level: currentLevel,
-//     schoolCode: user.schoolCode,
-//     userId: user.id,
-//   },
-// });
-// if (isCorrect) {
-//   await prisma.user.update({
-//     where: { email: session.user.email },
-//     data: { level: currentLevel + 1 },
-//   });
-
-//   return NextResponse.json({ success: true, nextLevel: currentLevel + 1 });
-// } else {
-//   return NextResponse.json({ success: false, message: "Wrong Answer" });
-// }
