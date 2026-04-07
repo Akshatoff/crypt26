@@ -13,12 +13,12 @@
   --surface: #0d1a0d;
   --surface2: #112211;
   --border: #1a3a1a;
-  --border-bright: #00ff41;
+  --border-bright: #d11010;
   --text: #c8ffca;
-  --text-dim: #5a8a5c;
-  --text-bright: #00ff41;
-  --accent: #00ff41;
-  --accent2: #00c832;
+  --text-dim: #ff000085;
+  --text-bright: #ff0004;
+  --accent: #ff002b;
+  --accent2: #c80000;
   --accent-dim: #003a0f;
   --red: #ff2040;
   --amber: #ffb020;
@@ -70,6 +70,21 @@ html::after {
 @font-face {
   font-family: "outlast";
   src: url("/fonts/outlast-ii-game/outlast_2_game.otf");
+}
+
+@font-face {
+  font-family: "handwriting_black_draft";
+  src: url("/fonts/handwriting_black_draft/handwriting-black-draft_DEMO.otf");
+}
+
+@font-face {
+  font-family: "spec";
+  src: url("/fonts/jmh/jmhthin.ttf");
+}
+
+@font-face {
+  font-family: "sissy";
+  src: url("/fonts/schneidler-medium-font/schneidlerbt-medium.otf");
 }
 
 html, body {
@@ -265,12 +280,17 @@ canvas { width: 100%; height: 100vh !important; }
 
 .heading {
   font-size: clamp(2rem, 5vw, 5rem);
-  letter-spacing: 0.3em;
-  font-family: "outlast";
+  letter-spacing: 0.2em;
+  font-family: "handwriting_black_draft";
   font-weight: 900;
   color: rgba(255, 0, 0, 0.655);
   text-shadow: var(--glow-strong);
   
+}
+
+.spe {
+  font-family: "spec";
+  font-size: clamp(2rem, 6vw, 5rem);
 }
 
 .encrypted {
@@ -297,36 +317,46 @@ canvas { width: 100%; height: 100vh !important; }
   gap: 0.2rem;
   min-width: 220px;
 }
-
 .menu-item {
-  font-family: var(--font-display);
-  font-size: 0.8rem;
+  font-family: "sissy";
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--text-dim);
   cursor: pointer;
-  padding: 0.5rem 1rem;
-  border-left: 2px solid transparent;
+  padding: 0.3rem 1rem;
+  position: relative; /* Required to anchor the ::before element */
   transition: all 200ms ease;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.75rem;
+  text-align: center;
 }
 
+/* The new animated underline */
 .menu-item::before {
-  content: '//';
-  font-family: var(--font-mono);
-  color: var(--accent-dim);
-  font-size: 0.75rem;
-  transition: color 200ms;
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px; /* Thickness of the underline */
+  background-color: var(--accent);
+  transform: scaleX(0); /* Starts shrunk down to nothing */
+  transform-origin: left; /* Ensures it grows from left to right */
+  transition: transform 200ms ease;
 }
 
 .menu-item:hover {
-  color: var(--text-bright);
-  border-left-color: var(--accent);
-  text-shadow: var(--glow);
-  padding-left: 1.5rem;
+  color: var(--text-bright) !important;
+  text-shadow: var(--glow) !important;
+}
+
+/* Triggers the underline to grow on hover */
+.menu-item:hover::before {
+  transform: scaleX(1); /* Expands to full width */
 }
 
 .menu-item:hover::before { color: var(--accent); }
@@ -785,3 +815,108 @@ h2 {
   table { width: 100%; font-size: 0.8rem; }
 }
 
+.glitch-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.glitch-text {
+  position: relative;
+  animation: glitch-skew 4s linear infinite;
+}
+
+.glitch-text::before,
+.glitch-text::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #110404; /* match your page bg */
+  overflow: hidden;
+}
+
+.glitch-text::before {
+  left: -2px;
+  animation: glitch-c2 1s infinite linear alternate-reverse;
+}
+
+.glitch-text::after {
+  left: 3px;
+  animation: glitch-c1 2s infinite linear alternate-reverse;
+}
+
+@keyframes glitch-c1 {
+  0%   { clip: rect(10px, 9999px, 70px, 0); }
+  5%   { clip: rect(72px, 9999px, 48px, 0); }
+  10%  { clip: rect(24px, 9999px, 27px, 0); }
+  15%  { clip: rect(99px, 9999px, 100px, 0); }
+  20%  { clip: rect(21px, 9999px, 81px, 0); }
+  25%  { clip: rect(83px, 9999px, 75px, 0); }
+  30%  { clip: rect(19px, 9999px, 31px, 0); }
+  35%  { clip: rect(73px, 9999px, 19px, 0); }
+  40%  { clip: rect(74px, 9999px, 58px, 0); }
+  45%  { clip: rect(66px, 9999px, 85px, 0); }
+  50%  { clip: rect(81px, 9999px, 71px, 0); }
+  55%  { clip: rect(8px,  9999px, 83px, 0); }
+  60%  { clip: rect(79px, 9999px, 74px, 0); }
+  65%  { clip: rect(97px, 9999px, 4px,  0); }
+  70%  { clip: rect(24px, 9999px, 43px, 0); }
+  75%  { clip: rect(36px, 9999px, 36px, 0); }
+  80%  { clip: rect(78px, 9999px, 90px, 0); }
+  85%  { clip: rect(6px,  9999px, 43px, 0); }
+  90%  { clip: rect(56px, 9999px, 54px, 0); }
+  95%  { clip: rect(24px, 9999px, 57px, 0); }
+  100% { clip: rect(69px, 9999px, 40px, 0); }
+}
+
+@keyframes glitch-c2 {
+  0%   { clip: rect(20px, 9999px, 79px, 0); }
+  5%   { clip: rect(52px, 9999px, 40px, 0); }
+  10%  { clip: rect(71px, 9999px, 77px, 0); }
+  15%  { clip: rect(76px, 9999px, 58px, 0); }
+  20%  { clip: rect(93px, 9999px, 83px, 0); }
+  25%  { clip: rect(20px, 9999px, 66px, 0); }
+  30%  { clip: rect(67px, 9999px, 91px, 0); }
+  35%  { clip: rect(85px, 9999px, 91px, 0); }
+  40%  { clip: rect(88px, 9999px, 28px, 0); }
+  45%  { clip: rect(98px, 9999px, 51px, 0); }
+  50%  { clip: rect(13px, 9999px, 40px, 0); }
+  55%  { clip: rect(90px, 9999px, 81px, 0); }
+  60%  { clip: rect(13px, 9999px, 91px, 0); }
+  65%  { clip: rect(62px, 9999px, 96px, 0); }
+  70%  { clip: rect(22px, 9999px, 23px, 0); }
+  75%  { clip: rect(77px, 9999px, 11px, 0); }
+  80%  { clip: rect(98px, 9999px, 69px, 0); }
+  85%  { clip: rect(77px, 9999px, 86px, 0); }
+  90%  { clip: rect(28px, 9999px, 17px, 0); }
+  95%  { clip: rect(27px, 9999px, 80px, 0); }
+  100% { clip: rect(92px, 9999px, 43px, 0); }
+  23%  { transform: scaleX(0.8); }
+}
+
+@keyframes glitch-skew {
+  0%   { transform: translate(1px, 3px); }
+  2%   { transform: translate(1px, 5px); }
+  4%   { transform: translate(3px, 3px); }
+  6%   { transform: translate(1px, 4px); }
+  8%   { transform: translate(3px, 3px); }
+  10%  { transform: translate(2px, 2px); }
+  12%  { transform: translate(3px, 2px); }
+  14%  { transform: translate(5px, 5px); }
+  16%  { transform: translate(2px, 1px); }
+  18%  { transform: translate(5px, 3px); }
+  20%  { transform: translate(1px, 3px); }
+  22%  { transform: translate(3px, 4px); }
+  24%  { transform: translate(1px, 4px); }
+  26%  { transform: translate(1px, 1px); }
+  28%  { transform: translate(2px, 3px); }
+  30%  { transform: translate(3px, 4px); }
+  1%   { transform: scaleY(1) skewX(0deg); }
+  1.5% { transform: scaleY(3) skewX(-60deg); }
+  2%   { transform: scaleY(1) skewX(0deg); }
+  51%  { transform: scaleX(1) scaleY(1) skewX(0deg); }
+  52%  { transform: scaleX(1.5) scaleY(0.2) skewX(80deg); }
+  53%  { transform: scaleX(1) scaleY(1) skewX(0deg); }
+}
