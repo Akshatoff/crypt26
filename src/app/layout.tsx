@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+// Import your new Client Component
+import FullscreenOverlay from "./components/FullScreenOverlay"; 
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -25,6 +28,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
+        {/* The global invisible fullscreen trigger */}
+        <FullscreenOverlay />
+        
         {children}
       </body>
     </html>
