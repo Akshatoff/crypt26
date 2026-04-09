@@ -1,21 +1,49 @@
 "use client"
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import "animate.css";
-import DecryptedText from "./components/DecryptedText";
+// import DecryptedText from "./components/DecryptedText";
+
+// Module-level variable to track if the sequence has run this session
+let hasAudioPlayedThisSession = false;
 
 export default function Home() {
+  const [time, setTime] = useState("");
+  const audioRef = useRef<HTMLAudioElement>(null);
 
-  const [time, setTime] = useState(new Date().toLocaleTimeString());
-
+  // Clock effect
   useEffect(() => {
+    setTime(new Date().toLocaleTimeString());
     const timer = setInterval(() => {
       setTime(new Date().toLocaleTimeString());
     }, 1000);
 
     return () => clearInterval(timer);
   }, []);
+
+  // Background Audio Effect
+  useEffect(() => {
+    // If the audio already played this session, do nothing
+    if (hasAudioPlayedThisSession) return;
+
+    const delayTimer = setTimeout(() => {
+      if (audioRef.current) {
+        audioRef.current.play()
+          .then(() => {
+            hasAudioPlayedThisSession = true;
+          })
+          .catch((err) => {
+            // Browsers may block autoplay if the user hasn't clicked anything yet.
+            // We just log it silently instead of locking the screen.
+            console.warn("Autoplay blocked by browser policy:", err);
+          });
+      }
+    }, 2000); // 2-second delay
+
+    return () => clearTimeout(delayTimer);
+  }, []);
+
   return (
     <div
       style={{
@@ -27,10 +55,14 @@ export default function Home() {
         display: "flex",
       }}
     >
-      {/* === CRT SCANLINE OVERLAY === 
-        Sits on top of everything (zIndex: 999) to give the screen texture.
-        pointerEvents: "none" is critical so it doesn't block clicks!
-      */}
+      <audio 
+        ref={audioRef} 
+        src="/fnaf.mp3" // Ensure this matches your file in the public folder
+        preload="auto"
+        loop // Added loop since this is background music
+      />
+
+      {/* === CRT SCANLINE OVERLAY === */}
       <div
         style={{
           position: "absolute",
@@ -39,7 +71,7 @@ export default function Home() {
           width: "100%",
           height: "100%",
           background: "linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.4) 50%)",
-          backgroundSize: "100% 4px", /* Controls the thickness of the lines */
+          backgroundSize: "100% 4px",
           zIndex: 999,
           pointerEvents: "none",
         }}
@@ -57,15 +89,12 @@ export default function Home() {
           left: 0,
           width: "100%",
           height: "100%",
-          objectFit: "cover", // Ensures the video covers the screen without stretching
+          objectFit: "cover",
           zIndex: 0,
         }}
       >
-        {/* Make sure to place your video file in the 'public' folder of your Next.js app */}
         <source src="/first.mp4" type="video/mp4" />
       </video>
-
-      {/* Vignette Overlay (Kept from your original setup for depth) */}
 
       {/* Main Content Wrapper */}
       <div
@@ -144,9 +173,6 @@ export default function Home() {
             </div>
           </Link>
         </nav>
-
-        {/* Bottom system bar */}
-        
       </div>
     </div>
   );

@@ -2,9 +2,9 @@ import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
-export async function POST() {
+// Changed to GET so browser navigation works
+export async function GET(req: Request) { 
   try {
-    // Revoke the session server-side
     const session = await auth.api.getSession({ headers: await headers() });
 
     if (session?.session?.token) {
@@ -14,10 +14,11 @@ export async function POST() {
       });
     }
 
-    return NextResponse.json({ success: true });
+    // Redirect the user back to the login page after clearing the session
+    return NextResponse.redirect(new URL("/login", req.url));
   } catch (error) {
     console.error("Logout error:", error);
-    // Return success anyway — client will redirect regardless
-    return NextResponse.json({ success: true });
+    // Redirect even if it fails
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 }

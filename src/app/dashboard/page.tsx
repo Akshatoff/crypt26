@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import dynamic from "next/dynamic";
@@ -21,6 +21,9 @@ type PublicQuestion = {
   question: string;
   img?: string;
 };
+
+// Module-level variable to track if the sequence has run this session
+let hasAudioPlayedThisSession = false;
 
 function SystemBar({ level }: { level: number | null }) {
   const [time, setTime] = useState("");
@@ -91,6 +94,47 @@ export default function Page() {
   >([]);
   const [loading, setLoading] = useState(false);
 
+  // --- AUDIO LOGIC STATES ---
+  const [isLocked, setIsLocked] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  // --- AUDIO DELAY AND LOCK EFFECT ---
+  useEffect(() => {
+    // 1. DO NOT RUN until we have confirmed the user is logged in
+    if (!session) return;
+
+    // 2. If it already played (or attempted to play) this session, skip
+    if (hasAudioPlayedThisSession) return;
+
+    const delayTimer = setTimeout(() => {
+      if (audioRef.current) {
+        setIsLocked(true); // Lock the screen while audio plays
+        
+        const playPromise = audioRef.current.play();
+        
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              hasAudioPlayedThisSession = true;
+            })
+            .catch((err) => {
+              console.warn("Autoplay blocked by browser. User likely reloaded the page directly.", err);
+              // Immediately unlock the screen if blocked so the user isn't trapped
+              setIsLocked(false);
+              hasAudioPlayedThisSession = true; // Mark as attempted so we don't keep trying
+            });
+        }
+      }
+    }, 2000); // 2-second delay after session is confirmed
+
+    return () => clearTimeout(delayTimer);
+  }, [session]); // <-- Added session to dependency array
+
+  const handleAudioEnded = () => {
+    setIsLocked(false);
+  };
+  // -------------------------
+
   const logout = async () => {
     try {
       await fetch("/logout", { method: "POST" });
@@ -101,10 +145,6 @@ export default function Page() {
     }
   };
 
-  /**
-   * Fetch the current question from the SERVER — no answers included.
-   * The server reads answers from server/questions.ts, never sent to client.
-   */
   const fetchAndShowQuestion = async () => {
     setLoading(true);
     try {
@@ -117,7 +157,7 @@ export default function Page() {
       }
 
       setCurrentLevel(data.level);
-      setQuestionData(data.question); // only { level, question, img } — NO answer
+      setQuestionData(data.question);
       setShowPopup(true);
     } finally {
       setLoading(false);
@@ -180,7 +220,6 @@ export default function Page() {
     } catch {}
   };
 
-  // Fetch current level for the system bar (separate lightweight call)
   const fetchCurrentLevel = async () => {
     try {
       const res = await fetch("/getlevel", { cache: "no-store" });
@@ -217,321 +256,381 @@ export default function Page() {
   }, []);
 
   return (
-    <>
-      {/* Sidebar */}
-      <nav className="sidenav">
-        <ul className="sidelist">
-          <Link href="/dashboard">
-            <li className="navitem">Home</li>
-          </Link>
-          <Link href="/about">
-            <li className="navitem">Docs</li>
-          </Link>
-          <Link href="/leaderboard">
-            <li className="navitem">Ranks</li>
-          </Link>
-          <li
-            className="navitem"
-            onClick={logout}
-            style={{ color: "var(--red)", cursor: "pointer" }}
-          >
-            Exit
-          </li>
-        </ul>
-      </nav>
-
-      <SystemBar level={currentLevel} />
-
+    <div style={{ position: "relative", minHeight: "100vh", backgroundColor: "#050a05" }}>
+      {/* === CRT SCANLINE OVERLAY === */}
       <div
-        id="dash"
         style={{
-          paddingTop: "calc(2rem + 40px)",
-          display: "flex",
-          flexDirection: "column",
-          gap: "1.5rem",
-          minHeight: "100vh",
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          background: "linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.4) 50%)",
+          backgroundSize: "100% 4px",
+          zIndex: 1,
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* === BACKGROUND VIDEO === */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          zIndex: 0,
         }}
       >
-        {/* User Card */}
-        <div className="upper">
+        <source src="/first.mp4" type="video/mp4" />
+      </video>
+
+      {/* === MAIN CONTENT WRAPPER === */}
+      <div style={{ position: "relative", zIndex: 2 }}>
+        {/* === BACKGROUND AUDIO SETUP === */}
+        <audio 
+          ref={audioRef} 
+          src="/crypt.mp3" 
+          onEnded={handleAudioEnded} 
+          preload="auto"
+        />
+
+        {/* === INTERACTION BLOCKER (DURING AUDIO) === */}
+        {isLocked && (
           <div
             style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 0,
-              width: "100%",
-              maxWidth: 700,
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100vw",
+              height: "100vh",
+              zIndex: 999999, 
+              cursor: "wait",
             }}
-          >
+          />
+        )}
+
+        {/* Sidebar */}
+        <nav className="sidenav">
+          <ul className="sidelist">
+            <Link href="/dashboard">
+              <li className="navitem">Home</li>
+            </Link>
+            <Link href="/about">
+              <li className="navitem">Docs</li>
+            </Link>
+            <Link href="/leaderboard">
+              <li className="navitem">Ranks</li>
+            </Link>
+            <li
+              className="navitem"
+              onClick={logout}
+              style={{ color: "var(--red)", cursor: "pointer" }}
+            >
+              Exit
+            </li>
+          </ul>
+        </nav>
+
+        <SystemBar level={currentLevel} />
+
+        <div
+          id="dash"
+          style={{
+            paddingTop: "calc(2rem + 40px)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1.5rem",
+            minHeight: "100vh",
+          }}
+        >
+          {/* User Card */}
+          <div className="upper">
             <div
               style={{
                 display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.4rem 1rem",
-                background: "var(--surface2)",
-                border: "1px solid var(--border)",
-                borderBottom: "none",
-                borderTop: "1px solid var(--accent)",
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.6rem",
-                color: "var(--text-dim)",
-                letterSpacing: "0.2em",
+                flexDirection: "column",
+                gap: 0,
+                width: "100%",
+                maxWidth: 700,
               }}
             >
-              <span style={{ color: "var(--accent)" }}>//</span> AGENT_PROFILE
-            </div>
-
-            <div className="user-dash">
-              <div className="user-info">
-                {error ? (
-                  <p style={{ color: "var(--red)", fontSize: "0.8rem" }}>
-                    ERR: Failed to load agent data
-                  </p>
-                ) : session ? (
-                  <>
-                    <span id="name">AGENT_ID</span>
-                    <h1 id="username">{session.user?.name || "UNKNOWN"}</h1>
-                    <div className="school-con">
-                      {code ? (
-                        <p>
-                          UNIT: <span>{schoolName || "FETCHING..."}</span>
-                        </p>
-                      ) : (
-                        <>
-                          <input
-                            type="text"
-                            placeholder="ENTER UNIT CODE"
-                            value={inputCode}
-                            onChange={(e) => setInputCode(e.target.value)}
-                            onKeyDown={(e) =>
-                              e.key === "Enter" && verifySchoolCode()
-                            }
-                            style={{ marginTop: 0, fontSize: "0.75rem" }}
-                          />
-                          <button className="submit" onClick={verifySchoolCode}>
-                            VERIFY
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <p
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.8rem",
-                      color: "var(--text-dim)",
-                    }}
-                  >
-                    LOADING AGENT DATA...
-                  </p>
-                )}
-              </div>
-              <div className="user-img">
-                <Image src={db} alt="Agent" id="db" />
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                gap: "1.5rem",
-                padding: "0.4rem 1rem",
-                background: "var(--bg2)",
-                border: "1px solid var(--border)",
-                borderTop: "none",
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.6rem",
-                color: "var(--text-dim)",
-                letterSpacing: "0.1em",
-              }}
-            >
-              <span>
-                <span style={{ color: "var(--accent)" }}>LEVEL</span>{" "}
-                {currentLevel ? `${currentLevel}/15` : "--"}
-              </span>
-              <span>
-                <span style={{ color: "var(--accent)" }}>UNIT</span>{" "}
-                {code || "UNASSIGNED"}
-              </span>
-              <span>
-                <span style={{ color: "var(--accent)" }}>STATUS</span>{" "}
-                {session ? "ACTIVE" : "OFFLINE"}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Lower cards */}
-        <div className="lower">
-          {/* Play card */}
-          <div className="play-con">
-            <div>
-              <div className="play-label">// MISSION_CONTROL</div>
-              <p id="play">Ready to lose your sleep?</p>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               <div
                 style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.4rem 1rem",
+                  background: "var(--surface2)",
+                  border: "1px solid var(--border)",
+                  borderBottom: "none",
+                  borderTop: "1px solid var(--accent)",
                   fontFamily: "var(--font-mono)",
                   fontSize: "0.6rem",
                   color: "var(--text-dim)",
-                  padding: "0.4rem",
-                  background: "var(--bg2)",
-                  border: "1px solid var(--border)",
+                  letterSpacing: "0.2em",
                 }}
               >
-                OBJECTIVE: Solve cryptic puzzles &amp; advance levels
+                <span style={{ color: "var(--accent)" }}>//</span> AGENT_PROFILE
               </div>
-              <button
-                className="play-btn"
-                onClick={fetchAndShowQuestion}
-                disabled={loading || !code}
-                style={{ opacity: loading || !code ? 0.6 : 1 }}
-                title={!code ? "Enter your school code first" : undefined}
+
+              <div className="user-dash">
+                <div className="user-info">
+                  {error ? (
+                    <p style={{ color: "var(--red)", fontSize: "0.8rem" }}>
+                      ERR: Failed to load agent data
+                    </p>
+                  ) : session ? (
+                    <>
+                      <span id="name">AGENT_ID</span>
+                      <h1 id="username">{session.user?.name || "UNKNOWN"}</h1>
+                      <div className="school-con">
+                        {code ? (
+                          <p>
+                            UNIT: <span>{schoolName || "FETCHING..."}</span>
+                          </p>
+                        ) : (
+                          <>
+                            <input
+                              type="text"
+                              placeholder="ENTER UNIT CODE"
+                              value={inputCode}
+                              onChange={(e) => setInputCode(e.target.value)}
+                              onKeyDown={(e) =>
+                                e.key === "Enter" && verifySchoolCode()
+                              }
+                              style={{ marginTop: 0, fontSize: "0.75rem" }}
+                            />
+                            <button className="submit" onClick={verifySchoolCode}>
+                              VERIFY
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <p
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "0.8rem",
+                        color: "var(--text-dim)",
+                      }}
+                    >
+                      LOADING AGENT DATA...
+                    </p>
+                  )}
+                </div>
+                <div className="user-img">
+                  <Image src={db} alt="Agent" id="db" />
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "1.5rem",
+                  padding: "0.4rem 1rem",
+                  background: "var(--bg2)",
+                  border: "1px solid var(--border)",
+                  borderTop: "none",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.6rem",
+                  color: "var(--text-dim)",
+                  letterSpacing: "0.1em",
+                }}
               >
-                {loading ? "LOADING..." : "▶ EXECUTE"}
-              </button>
-              {!code && (
+                <span>
+                  <span style={{ color: "var(--accent)" }}>LEVEL</span>{" "}
+                  {currentLevel ? `${currentLevel}/15` : "--"}
+                </span>
+                <span>
+                  <span style={{ color: "var(--accent)" }}>UNIT</span>{" "}
+                  {code || "UNASSIGNED"}
+                </span>
+                <span>
+                  <span style={{ color: "var(--accent)" }}>STATUS</span>{" "}
+                  {session ? "ACTIVE" : "OFFLINE"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Lower cards */}
+          <div className="lower">
+            {/* Play card */}
+            <div className="play-con">
+              <div>
+                <div className="play-label">// MISSION_CONTROL</div>
+                <p id="play">Ready to lose your sleep?</p>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                 <div
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: "0.6rem",
-                    color: "var(--amber)",
-                    letterSpacing: "0.1em",
+                    color: "var(--text-dim)",
+                    padding: "0.4rem",
+                    background: "var(--bg2)",
+                    border: "1px solid var(--border)",
                   }}
                 >
-                  ⚠ Enter school code first
+                  OBJECTIVE: Solve cryptic puzzles &amp; advance levels
                 </div>
-              )}
+                <button
+                  className="play-btn"
+                  onClick={fetchAndShowQuestion}
+                  disabled={loading || !code}
+                  style={{ opacity: loading || !code ? 0.6 : 1 }}
+                  title={!code ? "Enter your school code first" : undefined}
+                >
+                  {loading ? "LOADING..." : "▶ EXECUTE"}
+                </button>
+                {!code && (
+                  <div
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "0.6rem",
+                      color: "var(--amber)",
+                      letterSpacing: "0.1em",
+                    }}
+                  >
+                    ⚠ Enter school code first
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Team card */}
-          <div className="team">
-            <h2 id="team-mem">Team Roster</h2>
-            <ol className="user-list">
-              {teamMembers.length > 0 ? (
-                teamMembers.map((user, idx) => (
-                  <li key={idx} className="user">
-                    {user.name || user.email || "UNKNOWN_AGENT"}
+            {/* Team card */}
+            <div className="team">
+              <h2 id="team-mem">Team Roster</h2>
+              <ol className="user-list">
+                {teamMembers.length > 0 ? (
+                  teamMembers.map((user, idx) => (
+                    <li key={idx} className="user">
+                      {user.name || user.email || "UNKNOWN_AGENT"}
+                    </li>
+                  ))
+                ) : (
+                  <li
+                    className="user"
+                    style={{
+                      borderLeftColor: "var(--border)",
+                      color: "var(--text-dim)",
+                      opacity: 0.5,
+                    }}
+                  >
+                    NO AGENTS FOUND
                   </li>
-                ))
-              ) : (
-                <li
-                  className="user"
-                  style={{
-                    borderLeftColor: "var(--border)",
-                    color: "var(--text-dim)",
-                    opacity: 0.5,
-                  }}
-                >
-                  NO AGENTS FOUND
-                </li>
-              )}
-            </ol>
+                )}
+              </ol>
+            </div>
+
+            {/* Quick links */}
+            <div
+              style={{
+                width: 180,
+                minHeight: 260,
+                border: "1px solid var(--border)",
+                background: "var(--surface)",
+                padding: "1.5rem",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.5rem",
+                position: "relative",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  top: "0.5rem",
+                  right: "0.75rem",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.55rem",
+                  color: "var(--text-dim)",
+                  letterSpacing: "0.1em",
+                  opacity: 0.5,
+                }}
+              >
+                SYS::LINKS
+              </div>
+              <div
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  color: "var(--text)",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  borderBottom: "1px solid var(--border)",
+                  paddingBottom: "0.75rem",
+                  marginBottom: "0.25rem",
+                }}
+              >
+                Quick Access
+              </div>
+              {[
+                { href: "/leaderboard", label: "Leaderboard" },
+                { href: "/about", label: "Tutorial" },
+                { href: "/guidelines", label: "Guidelines" },
+              ].map((item) => (
+                <Link key={item.href} href={item.href}>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "0.75rem",
+                      color: "var(--text-dim)",
+                      padding: "0.5rem 0.5rem",
+                      borderLeft: "2px solid var(--border)",
+                      transition: "all 150ms",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.4rem",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLElement).style.borderLeftColor =
+                        "var(--accent)";
+                      (e.currentTarget as HTMLElement).style.color =
+                        "var(--text-bright)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.borderLeftColor =
+                        "var(--border)";
+                      (e.currentTarget as HTMLElement).style.color =
+                        "var(--text-dim)";
+                    }}
+                  >
+                    <span style={{ color: "var(--accent-dim)" }}>&gt;</span>
+                    {item.label}
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
 
-          {/* Quick links */}
-          <div
-            style={{
-              width: 180,
-              minHeight: 260,
-              border: "1px solid var(--border)",
-              background: "var(--surface)",
-              padding: "1.5rem",
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.5rem",
-              position: "relative",
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                top: "0.5rem",
-                right: "0.75rem",
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.55rem",
-                color: "var(--text-dim)",
-                letterSpacing: "0.1em",
-                opacity: 0.5,
+          {showPopup && questionData && (
+            <QuestionPopup
+              questionText={questionData.question}
+              img={questionData.img}
+              open={showPopup}
+              onClose={() => setShowPopup(false)}
+              onNextLevel={async (nextLevel: number) => {
+                setCurrentLevel(nextLevel);
+                // Re-fetch the new question from server
+                setShowPopup(false);
+                setTimeout(() => fetchAndShowQuestion(), 300);
               }}
-            >
-              SYS::LINKS
-            </div>
-            <div
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "0.85rem",
-                fontWeight: 700,
-                color: "var(--text)",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                borderBottom: "1px solid var(--border)",
-                paddingBottom: "0.75rem",
-                marginBottom: "0.25rem",
-              }}
-            >
-              Quick Access
-            </div>
-            {[
-              { href: "/leaderboard", label: "Leaderboard" },
-              { href: "/about", label: "Tutorial" },
-              { href: "/guidelines", label: "Guidelines" },
-            ].map((item) => (
-              <Link key={item.href} href={item.href}>
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.75rem",
-                    color: "var(--text-dim)",
-                    padding: "0.5rem 0.5rem",
-                    borderLeft: "2px solid var(--border)",
-                    transition: "all 150ms",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.4rem",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.borderLeftColor =
-                      "var(--accent)";
-                    (e.currentTarget as HTMLElement).style.color =
-                      "var(--text-bright)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.borderLeftColor =
-                      "var(--border)";
-                    (e.currentTarget as HTMLElement).style.color =
-                      "var(--text-dim)";
-                  }}
-                >
-                  <span style={{ color: "var(--accent-dim)" }}>&gt;</span>
-                  {item.label}
-                </div>
-              </Link>
-            ))}
-          </div>
+              level={currentLevel || 1}
+            />
+          )}
         </div>
-
-        {showPopup && questionData && (
-          <QuestionPopup
-            questionText={questionData.question}
-            img={questionData.img}
-            open={showPopup}
-            onClose={() => setShowPopup(false)}
-            onNextLevel={async (nextLevel: number) => {
-              setCurrentLevel(nextLevel);
-              // Re-fetch the new question from server
-              setShowPopup(false);
-              setTimeout(() => fetchAndShowQuestion(), 300);
-            }}
-            level={currentLevel || 1}
-          />
-        )}
       </div>
-    </>
+    </div>
   );
 }

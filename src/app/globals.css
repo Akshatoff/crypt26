@@ -9,21 +9,21 @@
 
 :root {
   --bg: #050a05;
-  --bg2: #080f08;
-  --surface: #0d1a0d;
-  --surface2: #112211;
-  --border: #1a3a1a;
+  --bg2: #0f0808;
+  --surface: #1c0202;
+  --surface2: #221111;
+  --border: #5c0c0c;
   --border-bright: #d11010;
-  --text: #c8ffca;
+  --text: #ba0d0d;
   --text-dim: #ff000085;
   --text-bright: #ff0004;
   --accent: #ff002b;
   --accent2: #c80000;
-  --accent-dim: #003a0f;
+  --accent-dim: #3a0000;
   --red: #ff2040;
   --amber: #ffb020;
   --cyan: #00e5ff;
-  --glow: 0 0 20px rgba(0, 255, 65, 0.3);
+  --glow: 0 0 20px rgba(255, 0, 17, 0.3);
   --glow-strong: 0 0 40px rgba(255, 0, 17, 0.836);
   --font-mono: 'Share Tech Mono', 'Courier New', monospace;
   --font-display: 'Orbitron', sans-serif;
@@ -98,9 +98,7 @@ body {
   font-family: var(--font-body);
   width: 100%;
   height: 100%;
-  background-image:
-    radial-gradient(ellipse at 20% 50%, rgba(0, 255, 65, 0.03) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 20%, rgba(0, 200, 50, 0.02) 0%, transparent 50%);
+ 
 }
 
 /* ─── TYPOGRAPHY ─── */
@@ -180,7 +178,7 @@ button::before {
   position: absolute;
   top: 0; left: -100%;
   width: 100%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(0,255,65,0.08), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 0, 0, 0.08), transparent);
   transition: left 400ms ease;
 }
 
@@ -189,7 +187,7 @@ button:hover::before { left: 100%; }
 button:hover {
   border-color: var(--accent);
   color: var(--text-bright);
-  box-shadow: var(--glow), inset 0 0 20px rgba(0,255,65,0.05);
+  box-shadow: var(--glow), inset 0 0 20px rgba(255, 0, 0, 0.05);
 }
 
 button:active { transform: scale(0.97); filter: brightness(0.85); }
@@ -443,7 +441,7 @@ canvas { width: 100%; height: 100vh !important; }
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(135deg, rgba(0,255,65,0.03) 0%, transparent 60%);
+    linear-gradient(135deg, rgba(255, 0, 0, 0.132) 0%, transparent 60%);
   pointer-events: none;
 }
 
@@ -472,7 +470,7 @@ canvas { width: 100%; height: 100vh !important; }
 .school-con p span { color: var(--text-bright); }
 
 .user-img { width: 80px; position: relative; }
-#db { width: 100%; height: auto; filter: drop-shadow(0 0 10px rgba(0,255,65,0.2)); }
+#db { width: 100%; height: auto; filter: drop-shadow(0 0 10px rgba(255, 0, 0, 0.2)); }
 
 /* ─── STATUS BAR ─── */
 .status-bar {
@@ -568,7 +566,7 @@ canvas { width: 100%; height: 100vh !important; }
 }
 
 .play-con .play-btn:hover {
-  background: rgba(0,255,65,0.15);
+  background: rgba(255, 0, 0, 0.15);
   box-shadow: var(--glow-strong);
 }
 
@@ -630,7 +628,7 @@ canvas { width: 100%; height: 100vh !important; }
   background: var(--bg) !important;
   border: 1px solid var(--border-bright) !important;
   border-radius: 0 !important;
-  box-shadow: var(--glow-strong), 0 0 80px rgba(0,0,0,0.8) !important;
+  box-shadow: var(--glow-strong), 0 0 80px rgba(0, 0, 0, 0.8) !important;
 }
 
 .input-con {
@@ -750,7 +748,7 @@ h2 {
   color: var(--text-bright);
   letter-spacing: 0.05em;
   margin-bottom: 1rem;
-  text-shadow: 0 0 10px rgba(0,255,65,0.2);
+  text-shadow: 0 0 10px rgba(255, 0, 0, 0.2);
 }
 
 .section-label {
@@ -788,7 +786,7 @@ h2 {
 }
 
 .submit:hover {
-  background: rgba(0,255,65,0.15);
+  background: rgba(255, 0, 0, 0.15);
   box-shadow: var(--glow);
   color: var(--text-bright);
   border-color: var(--text-bright);

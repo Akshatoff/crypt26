@@ -95,13 +95,13 @@ export default function QuestionPopup({
           transform: "translate(-50%, -50%)",
           width: "min(860px, 95vw)",
           maxHeight: "90vh",
-          background: "var(--bg)",
+          background: "transparent",
           border: "1px solid var(--border)",
           outline: "none",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          boxShadow: "0 0 60px rgba(0,0,0,0.9), 0 0 30px rgba(0,255,65,0.1)",
+          boxShadow: "0 0 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(255, 0, 0, 0.1)",
           animation: shake ? "shake 0.5s ease" : "none",
         }}
       >
@@ -350,7 +350,7 @@ export default function QuestionPopup({
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                 <div
                   style={{
-                    background: "rgba(0,255,65,0.05)",
+                    background: "rgba(255, 0, 0, 0.05)",
                     border: "1px solid var(--accent)",
                     padding: "1rem",
                     fontFamily: "var(--font-mono)",

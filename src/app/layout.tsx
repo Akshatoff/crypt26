@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Crypt@trix 25.0",
-  description: "The return of crypt",
+  title: "Crypt@trix 26.0",
+  description: "The greatest crypt ever hosted by this school",
 };
 
 export default function RootLayout({
