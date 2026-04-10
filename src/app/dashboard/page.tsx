@@ -25,57 +25,107 @@ type PublicQuestion = {
 // Module-level variable to track if the sequence has run this session
 let hasAudioPlayedThisSession = false;
 
-function SystemBar({ level }: { level: number | null }) {
-  const [time, setTime] = useState("");
-
-  useEffect(() => {
-    const tick = () =>
-      setTime(new Date().toISOString().replace("T", " ").slice(0, 19));
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, []);
-
+// --- FNAF THEME OVERLAYS ---
+// We replace the standard SystemBar with FNaF UI
+function FnafUI({ level, timeStr }: { level: number | null; timeStr: string }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "2rem",
-        padding: "0.5rem 1.5rem",
-        background: "var(--surface)",
-        borderBottom: "1px solid var(--border)",
-        fontFamily: "var(--font-mono)",
-        fontSize: "0.6rem",
-        color: "var(--text-dim)",
-        letterSpacing: "0.1em",
-        position: "fixed",
-        top: 0,
-        left: 90,
-        right: 0,
-        zIndex: 50,
-      }}
-    >
-      <span style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-        <span
+    <>
+      {/* TOP LEFT: REC */}
+      <div
+        style={{
+          position: "fixed",
+          top: "2rem",
+          left: "2rem",
+          zIndex: 50,
+          display: "flex",
+          alignItems: "center",
+          gap: "1rem",
+          fontFamily: "'Courier New', Courier, monospace",
+        }}
+      >
+        <div
           style={{
-            width: 6,
-            height: 6,
+            width: 25,
+            height: 25,
             borderRadius: "50%",
-            background: "var(--accent)",
-            boxShadow: "0 0 6px var(--accent)",
-            display: "inline-block",
-            animation: "blink 1.5s infinite",
+            background: "#ff0000",
+            animation: "blink 1s infinite",
           }}
         />
-        SYS::ONLINE
-      </span>
-      <span>UTC {time}</span>
-      {level && (
-        <span style={{ color: "var(--text-bright)" }}>LEVEL {level} / 15</span>
-      )}
-      <span style={{ marginLeft: "auto" }}>CRYPT@TRIX v25.0</span>
-    </div>
+        <span style={{ color: "white", fontSize: "1.5rem", fontWeight: "bold", textShadow: "0 0 5px white" }}>
+          REC
+        </span>
+      </div>
+
+      {/* TOP RIGHT: TIME & NIGHT */}
+      <div
+        style={{
+          position: "fixed",
+          top: "2rem",
+          right: "2rem",
+          zIndex: 50,
+          textAlign: "right",
+          fontFamily: "'Courier New', Courier, monospace",
+          color: "white",
+        }}
+      >
+        <div style={{ fontSize: "3rem", fontWeight: "bold", textShadow: "0 0 5px white" }}>
+          {timeStr}
+        </div>
+        <div style={{ fontSize: "1.5rem", marginTop: "-0.5rem" }}>
+          Night {level || 1}
+        </div>
+      </div>
+
+      {/* BOTTOM LEFT: BATTERY/USAGE */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: "3rem",
+          left: "2rem",
+          zIndex: 50,
+          fontFamily: "'Courier New', Courier, monospace",
+          color: "white",
+          fontSize: "1.2rem",
+        }}
+      >
+        <div style={{ marginBottom: "0.5rem", fontWeight: "bold" }}>
+          Power left: <span style={{ color: "var(--accent, rgb(255, 0, 0))" }}>SYS_OPTIMAL</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <span style={{ fontWeight: "bold" }}>Usage:</span>
+          <div style={{ display: "flex", gap: "4px" }}>
+            <div style={{ width: 15, height: 25, background: "rgb(255, 0, 0)", boxShadow: "0 0 5px rgb(255, 0, 0)" }} />
+            <div style={{ width: 15, height: 25, background: "rgb(255, 0, 0)", boxShadow: "0 0 5px rgb(255, 0, 0)" }} />
+            <div style={{ width: 15, height: 25, background: "#ffcc00", boxShadow: "0 0 5px #ffcc00", opacity: 0.3 }} />
+            <div style={{ width: 15, height: 25, background: "#ff0000", boxShadow: "0 0 5px #ff0000", opacity: 0.3 }} />
+          </div>
+        </div>
+      </div>
+
+      {/* BOTTOM CENTER: CAMERA FLIP BAR */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: "1rem",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 50,
+          width: "400px",
+          height: "30px",
+          border: "2px solid rgba(255,255,255,0.4)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          cursor: "not-allowed",
+          background: "rgba(0,0,0,0.5)",
+        }}
+      >
+        <div style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "5px" }}>
+          &#x25BC; &#x25BC; &#x25BC; &#x25BC;
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -89,27 +139,40 @@ export default function Page() {
   const [questionData, setQuestionData] = useState<PublicQuestion | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [currentLevel, setCurrentLevel] = useState<number | null>(null);
-  const [teamMembers, setTeamMembers] = useState<
-    { name?: string; email?: string }[]
-  >([]);
+  const [teamMembers, setTeamMembers] = useState<{ name?: string; email?: string }[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Time formatting for FNaF style (e.g., "1 AM")
+  const [timeStr, setTimeStr] = useState("12 AM");
 
   // --- AUDIO LOGIC STATES ---
   const [isLocked, setIsLocked] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // --- AUDIO DELAY AND LOCK EFFECT ---
-  useEffect(() => {
-    // 1. DO NOT RUN until we have confirmed the user is logged in
-    if (!session) return;
+  // --- NEW: ACTIVE CAMERA STATE (Navbar type shi) ---
+  const [activeCam, setActiveCam] = useState<"1A" | "1B" | "2A">("1A");
 
-    // 2. If it already played (or attempted to play) this session, skip
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      let hours = now.getHours();
+      const ampm = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12;
+      hours = hours ? hours : 12; 
+      setTimeStr(`${hours} ${ampm}`);
+    };
+    tick();
+    const id = setInterval(tick, 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (!session) return;
     if (hasAudioPlayedThisSession) return;
 
     const delayTimer = setTimeout(() => {
       if (audioRef.current) {
-        setIsLocked(true); // Lock the screen while audio plays
-        
+        setIsLocked(true);
         const playPromise = audioRef.current.play();
         
         if (playPromise !== undefined) {
@@ -118,22 +181,20 @@ export default function Page() {
               hasAudioPlayedThisSession = true;
             })
             .catch((err) => {
-              console.warn("Autoplay blocked by browser. User likely reloaded the page directly.", err);
-              // Immediately unlock the screen if blocked so the user isn't trapped
+              console.warn("Autoplay blocked by browser.", err);
               setIsLocked(false);
-              hasAudioPlayedThisSession = true; // Mark as attempted so we don't keep trying
+              hasAudioPlayedThisSession = true; 
             });
         }
       }
-    }, 2000); // 2-second delay after session is confirmed
+    }, 2000);
 
     return () => clearTimeout(delayTimer);
-  }, [session]); // <-- Added session to dependency array
+  }, [session]);
 
   const handleAudioEnded = () => {
     setIsLocked(false);
   };
-  // -------------------------
 
   const logout = async () => {
     try {
@@ -150,12 +211,10 @@ export default function Page() {
     try {
       const res = await fetch("/getquestion", { cache: "no-store" });
       const data = await res.json();
-
       if (!res.ok) {
         alert(data.error || "Error fetching question");
         return;
       }
-
       setCurrentLevel(data.level);
       setQuestionData(data.question);
       setShowPopup(true);
@@ -164,10 +223,7 @@ export default function Page() {
     }
   };
 
-  const fetchTeamMembers = async (
-    schoolCode: string,
-    currentUserEmail?: string
-  ) => {
+  const fetchTeamMembers = async (schoolCode: string, currentUserEmail?: string) => {
     try {
       const res = await fetch("/team", {
         method: "POST",
@@ -176,9 +232,7 @@ export default function Page() {
       });
       const data = await res.json();
       if (res.ok) {
-        setTeamMembers(
-          (data.users || []).filter((u: any) => u.email !== currentUserEmail)
-        );
+        setTeamMembers((data.users || []).filter((u: any) => u.email !== currentUserEmail));
       }
     } catch {}
   };
@@ -204,30 +258,6 @@ export default function Page() {
     }
   };
 
-  const fetchSchoolName = async (code: string) => {
-    try {
-      const res = await fetch("/schoolCheck", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ schoolCode: code }),
-      });
-      const data = await res.json();
-      if (res.ok) setSchoolName(data.schoolName);
-      else {
-        setCode(null);
-        setSchoolName(null);
-      }
-    } catch {}
-  };
-
-  const fetchCurrentLevel = async () => {
-    try {
-      const res = await fetch("/getlevel", { cache: "no-store" });
-      const data = await res.json();
-      if (res.ok) setCurrentLevel(data.level);
-    } catch {}
-  };
-
   useEffect(() => {
     const init = async () => {
       try {
@@ -247,7 +277,9 @@ export default function Page() {
           await fetchTeamMembers(schoolData.schoolCode, userEmail);
         }
 
-        await fetchCurrentLevel();
+        const resLevel = await fetch("/getlevel", { cache: "no-store" });
+        const levelData = await resLevel.json();
+        if (resLevel.ok) setCurrentLevel(levelData.level);
       } catch (err) {
         setError(err as any);
       }
@@ -255,364 +287,270 @@ export default function Page() {
     init();
   }, []);
 
+  const fetchSchoolName = async (schoolCode: string) => {
+      try {
+        const res = await fetch("/schoolCheck", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ schoolCode }),
+        });
+        const data = await res.json();
+        if (res.ok) setSchoolName(data.schoolName);
+      } catch {}
+  };
+
+  // --- DYNAMIC BACKGROUND LOGIC ---
+  // Ensure you have second.mp4 and third.mp4 in your public folder!
+  // --- DYNAMIC BACKGROUND LOGIC ---
+  // Ensure you have first.jpg, second.jpg, and third.jpg in your public folder!
+  const getBackgroundImage = () => {
+    switch (activeCam) {
+      case "1A": return "/bg.jpg"; 
+      case "1B": return "/bg2.webp"; 
+      case "2A": return "/bg3.png";  
+      default: return "/first.jpg";
+    }
+  };
+
   return (
-    <div style={{ position: "relative", minHeight: "100vh", backgroundColor: "#050a05" }}>
-      {/* === CRT SCANLINE OVERLAY === */}
+    <div style={{ position: "relative", minHeight: "100vh", backgroundColor: "#000", overflow: "hidden" }}>
+      <style>{`
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
+        @keyframes staticNoise {
+          0% { background-position: 0 0; }
+          100% { background-position: 100% 100%; }
+        }
+        .fnaf-cam-btn {
+          border: 2px solid white;
+          background: rgba(0, 0, 0, 0.7);
+          color: white;
+          padding: 8px 12px;
+          font-family: 'Courier New', monospace;
+          font-weight: bold;
+          cursor: pointer;
+          transition: 0.2s;
+        }
+        .fnaf-cam-btn:hover { background: rgba(255, 255, 255, 0.2); }
+        .fnaf-cam-active { background: #cc8888 !important; color: black; border-color: #cc8888; }
+      `}</style>
+
+      {/* === CRT STATIC & SCANLINE OVERLAY === */}
       <div
         style={{
           position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          background: "linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.4) 50%)",
-          backgroundSize: "100% 4px",
-          zIndex: 1,
+          top: 0, left: 0, width: "100%", height: "100%",
+          background: "linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))",
+          backgroundSize: "100% 4px, 3px 100%",
+          zIndex: 10,
           pointerEvents: "none",
         }}
       />
 
       {/* === BACKGROUND VIDEO === */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
+      {/* === BACKGROUND IMAGE === */}
+      {/* key={activeCam} ensures the element re-renders nicely if you add CSS animations later */}
+      <img
+        key={activeCam}
+        src={getBackgroundImage()}
+        alt={`Camera ${activeCam} view`}
         style={{
           position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100%",
+          top: 0, 
+          left: 0, 
+          width: "100%", 
           height: "100%",
           objectFit: "cover",
           zIndex: 0,
+          filter: "grayscale(30%) contrast(120%) brightness(0.8)",
         }}
-      >
-        <source src="/first.mp4" type="video/mp4" />
-      </video>
+      />
 
       {/* === MAIN CONTENT WRAPPER === */}
-      <div style={{ position: "relative", zIndex: 2 }}>
-        {/* === BACKGROUND AUDIO SETUP === */}
-        <audio 
-          ref={audioRef} 
-          src="/crypt.mp3" 
-          onEnded={handleAudioEnded} 
-          preload="auto"
-        />
+      <div style={{ position: "relative", zIndex: 5 }}>
+        <audio ref={audioRef} src="/crypt.mp3" onEnded={handleAudioEnded} preload="auto" />
 
         {/* === INTERACTION BLOCKER (DURING AUDIO) === */}
         {isLocked && (
           <div
             style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: "100vw",
-              height: "100vh",
-              zIndex: 999999, 
-              cursor: "wait",
+              position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+              zIndex: 999999, cursor: "wait",
             }}
           />
         )}
 
-        {/* Sidebar */}
-        <nav className="sidenav">
-          <ul className="sidelist">
-            <Link href="/dashboard">
-              <li className="navitem">Home</li>
-            </Link>
-            <Link href="/about">
-              <li className="navitem">Docs</li>
-            </Link>
-            <Link href="/leaderboard">
-              <li className="navitem">Ranks</li>
-            </Link>
-            <li
-              className="navitem"
-              onClick={logout}
-              style={{ color: "var(--red)", cursor: "pointer" }}
+        <FnafUI level={currentLevel} timeStr={timeStr} />
+
+        {/* === FNAF MAP NAVIGATION (Navbar) === */}
+        <div style={{ position: "fixed", right: "3rem", top: "50%", transform: "translateY(-50%)", zIndex: 50, width: "320px" }}>
+          <h2 style={{ fontFamily: "'Courier New', monospace", color: "white", textAlign: "right", borderBottom: "1px solid white", paddingBottom: "10px", marginBottom: "20px" }}>
+            Crypt Cove
+          </h2>
+          <div style={{ position: "relative", height: "300px", border: "1px dashed rgba(255,255,255,0.3)" }}>
+            {/* Map connecting lines */}
+            <div style={{ position: "absolute", borderTop: "2px solid white", width: "100px", top: "70px", left: "110px" }} />
+            <div style={{ position: "absolute", borderLeft: "2px solid white", height: "100px", top: "70px", left: "160px" }} />
+            <div style={{ position: "absolute", borderBottom: "2px solid white", width: "80px", top: "170px", left: "80px" }} />
+
+            {/* Cameras (Tabs) */}
+            <div 
+              onClick={() => setActiveCam("1A")}
+              className={`fnaf-cam-btn ${activeCam === "1A" ? "fnaf-cam-active" : ""}`}
+              style={{ position: "absolute", top: "50px", left: "20px" }}
             >
-              Exit
-            </li>
-          </ul>
-        </nav>
+              CAM 1A<br/><span style={{fontSize:"0.6rem"}}>HOME</span>
+            </div>
+            
+            <div 
+              onClick={() => setActiveCam("1B")}
+              className={`fnaf-cam-btn ${activeCam === "1B" ? "fnaf-cam-active" : ""}`}
+              style={{ position: "absolute", top: "50px", right: "20px" }}
+            >
+              CAM 1B<br/><span style={{fontSize:"0.6rem"}}>DOCS</span>
+            </div>
 
-        <SystemBar level={currentLevel} />
+            <div 
+              onClick={() => setActiveCam("2A")}
+              className={`fnaf-cam-btn ${activeCam === "2A" ? "fnaf-cam-active" : ""}`}
+              style={{ position: "absolute", top: "150px", right: "50px" }}
+            >
+              CAM 2A<br/><span style={{fontSize:"0.6rem"}}>RANKS</span>
+            </div>
 
+            {/* Exit keeps logout logic */}
+            <div 
+              onClick={logout} 
+              className="fnaf-cam-btn" 
+              style={{ position: "absolute", bottom: "30px", left: "30px", borderColor: "red", color: "red" }}
+            >
+              CAM 00<br/><span style={{fontSize:"0.6rem"}}>EXIT</span>
+            </div>
+
+            <div style={{ position: "absolute", bottom: "10px", right: "10px", fontFamily: "monospace", color: "white", fontSize: "0.8rem", border: "1px solid white", padding: "4px" }}>
+              YOU
+            </div>
+          </div>
+        </div>
+
+        {/* === CENTRAL TERMINAL CONTENT === */}
         <div
           id="dash"
           style={{
-            paddingTop: "calc(2rem + 40px)",
+            padding: "8rem 4rem",
             display: "flex",
             flexDirection: "column",
-            gap: "1.5rem",
-            minHeight: "100vh",
+            gap: "2rem",
+            maxWidth: "60%",
           }}
         >
-          {/* User Card */}
-          <div className="upper">
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 0,
-                width: "100%",
-                maxWidth: 700,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "0.4rem 1rem",
-                  background: "var(--surface2)",
-                  border: "1px solid var(--border)",
-                  borderBottom: "none",
-                  borderTop: "1px solid var(--accent)",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.6rem",
-                  color: "var(--text-dim)",
-                  letterSpacing: "0.2em",
-                }}
-              >
-                <span style={{ color: "var(--accent)" }}>//</span> AGENT_PROFILE
+          {/* TAB 1A: AGENT PROFILE */}
+          {activeCam === "1A" && (
+            <div style={{ background: "rgba(20, 0, 0, 0.8)", border: "2px solid #333", borderLeft: "4px solid rgb(255, 0, 0)", padding: "1.5rem", fontFamily: "'Courier New', monospace", animation: "blink 0.1s 2" }}>
+              <div style={{ color: "rgb(255, 0, 0)", marginBottom: "1rem", letterSpacing: "0.2em", fontSize: "0.8rem" }}>
+                &gt; SYSTEM.LOG_AGENT_DATA...
               </div>
-
-              <div className="user-dash">
-                <div className="user-info">
+              
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
                   {error ? (
-                    <p style={{ color: "var(--red)", fontSize: "0.8rem" }}>
-                      ERR: Failed to load agent data
-                    </p>
+                    <p style={{ color: "red" }}>ERR: CRITICAL FAILURE</p>
                   ) : session ? (
                     <>
-                      <span id="name">AGENT_ID</span>
-                      <h1 id="username">{session.user?.name || "UNKNOWN"}</h1>
-                      <div className="school-con">
-                        {code ? (
-                          <p>
-                            UNIT: <span>{schoolName || "FETCHING..."}</span>
-                          </p>
-                        ) : (
-                          <>
-                            <input
-                              type="text"
-                              placeholder="ENTER UNIT CODE"
-                              value={inputCode}
-                              onChange={(e) => setInputCode(e.target.value)}
-                              onKeyDown={(e) =>
-                                e.key === "Enter" && verifySchoolCode()
-                              }
-                              style={{ marginTop: 0, fontSize: "0.75rem" }}
-                            />
-                            <button className="submit" onClick={verifySchoolCode}>
-                              VERIFY
-                            </button>
-                          </>
-                        )}
-                      </div>
+                      <p style={{ color: "gray", margin: 0, fontSize: "0.8rem" }}>SUBJECT:</p>
+                      <h1 style={{ color: "white", fontSize: "2rem", margin: "0 0 1rem 0", textTransform: "uppercase" }}>
+                        {session.user?.name || "UNKNOWN_ENTITY"}
+                      </h1>
+                      
+                      {code ? (
+                        <p style={{ color: "white" }}>UNIT DEPLOYMENT: <span style={{ color: "rgb(255, 0, 0)" }}>[{schoolName || "FETCHING..."}]</span></p>
+                      ) : (
+                        <div style={{ display: "flex", gap: "10px" }}>
+                          <input
+                            type="text"
+                            placeholder="ENTER SECURITY OVERRIDE (CODE)"
+                            value={inputCode}
+                            onChange={(e) => setInputCode(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && verifySchoolCode()}
+                            style={{ background: "transparent", border: "1px solid rgb(255, 0, 0)", color: "rgb(255, 0, 0)", padding: "5px 10px", fontFamily: "monospace", outline: "none" }}
+                          />
+                          <button onClick={verifySchoolCode} style={{ background: "rgb(255, 0, 0)", color: "black", border: "none", padding: "5px 15px", cursor: "pointer", fontWeight: "bold", fontFamily: "monospace" }}>
+                            AUTH
+                          </button>
+                        </div>
+                      )}
                     </>
                   ) : (
-                    <p
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.8rem",
-                        color: "var(--text-dim)",
-                      }}
-                    >
-                      LOADING AGENT DATA...
-                    </p>
+                    <p style={{ color: "white" }}>AWAITING SIGNAL...</p>
                   )}
                 </div>
-                <div className="user-img">
-                  <Image src={db} alt="Agent" id="db" />
+                
+                <div style={{ filter: "sepia(100%) hue-rotate(270deg) saturate(100%)", opacity: 0.8, border: "2px solid #333" }}>
+                  <Image src={db} alt="Agent" width={100} height={100} />
                 </div>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: "1.5rem",
-                  padding: "0.4rem 1rem",
-                  background: "var(--bg2)",
-                  border: "1px solid var(--border)",
-                  borderTop: "none",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.6rem",
-                  color: "var(--text-dim)",
-                  letterSpacing: "0.1em",
-                }}
-              >
-                <span>
-                  <span style={{ color: "var(--accent)" }}>LEVEL</span>{" "}
-                  {currentLevel ? `${currentLevel}/15` : "--"}
-                </span>
-                <span>
-                  <span style={{ color: "var(--accent)" }}>UNIT</span>{" "}
-                  {code || "UNASSIGNED"}
-                </span>
-                <span>
-                  <span style={{ color: "var(--accent)" }}>STATUS</span>{" "}
-                  {session ? "ACTIVE" : "OFFLINE"}
-                </span>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Lower cards */}
-          <div className="lower">
-            {/* Play card */}
-            <div className="play-con">
-              <div>
-                <div className="play-label">// MISSION_CONTROL</div>
-                <p id="play">Ready to lose your sleep?</p>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.6rem",
-                    color: "var(--text-dim)",
-                    padding: "0.4rem",
-                    background: "var(--bg2)",
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  OBJECTIVE: Solve cryptic puzzles &amp; advance levels
+          {/* TAB 1B: MISSION CONTROL & TEAM */}
+          {activeCam === "1B" && (
+            <div style={{ display: "flex", gap: "2rem", animation: "blink 0.1s 2" }}>
+              {/* Play/Mission Control */}
+              <div style={{ flex: 1, background: "rgba(0,0,0,0.7)", border: "1px solid #555", padding: "1.5rem", position: "relative" }}>
+                <div style={{ color: "white", fontFamily: "monospace", fontSize: "1.5rem", marginBottom: "1rem" }}>
+                  IT'S ME...
                 </div>
+                <p style={{ color: "gray", fontFamily: "monospace", marginBottom: "1.5rem" }}>Initiate sequence and survive the night.</p>
+                
                 <button
-                  className="play-btn"
                   onClick={fetchAndShowQuestion}
                   disabled={loading || !code}
-                  style={{ opacity: loading || !code ? 0.6 : 1 }}
-                  title={!code ? "Enter your school code first" : undefined}
+                  style={{
+                    width: "100%",
+                    padding: "1rem",
+                    background: code ? "darkred" : "#222",
+                    color: code ? "white" : "#555",
+                    border: "2px solid",
+                    borderColor: code ? "red" : "#555",
+                    fontFamily: "'Courier New', monospace",
+                    fontSize: "1.2rem",
+                    fontWeight: "bold",
+                    cursor: code ? "pointer" : "not-allowed",
+                    boxShadow: code ? "0 0 15px red" : "none",
+                    transition: "0.3s"
+                  }}
+                  title={!code ? "Require security override first." : undefined}
                 >
-                  {loading ? "LOADING..." : "▶ EXECUTE"}
+                  {loading ? "INITIALIZING..." : "> CHECK CAMERAS <"}
                 </button>
-                {!code && (
-                  <div
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.6rem",
-                      color: "var(--amber)",
-                      letterSpacing: "0.1em",
-                    }}
-                  >
-                    ⚠ Enter school code first
-                  </div>
-                )}
               </div>
-            </div>
 
-            {/* Team card */}
-            <div className="team">
-              <h2 id="team-mem">Team Roster</h2>
-              <ol className="user-list">
-                {teamMembers.length > 0 ? (
-                  teamMembers.map((user, idx) => (
-                    <li key={idx} className="user">
-                      {user.name || user.email || "UNKNOWN_AGENT"}
-                    </li>
-                  ))
-                ) : (
-                  <li
-                    className="user"
-                    style={{
-                      borderLeftColor: "var(--border)",
-                      color: "var(--text-dim)",
-                      opacity: 0.5,
-                    }}
-                  >
-                    NO AGENTS FOUND
-                  </li>
-                )}
-              </ol>
+              {/* Team Roster */}
+              <div style={{ flex: 1, background: "rgba(0,0,0,0.7)", border: "1px dashed #555", padding: "1.5rem", fontFamily: "monospace", color: "white" }}>
+                <h3 style={{ borderBottom: "1px solid #333", paddingBottom: "0.5rem", marginBottom: "1rem", color: "#888" }}>
+                  ACTIVE ANIMATRONICS (TEAM)
+                </h3>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0, maxHeight: "150px", overflowY: "auto" }}>
+                  {teamMembers.length > 0 ? (
+                    teamMembers.map((user, idx) => (
+                      <li key={idx} style={{ padding: "0.5rem 0", color: "#ccc", borderBottom: "1px solid #222" }}>
+                        &gt; {user.name || user.email || "UNKNOWN"}
+                      </li>
+                    ))
+                  ) : (
+                    <li style={{ color: "red", opacity: 0.6 }}>NO MOVEMENT DETECTED.</li>
+                  )}
+                </ul>
+              </div>
             </div>
+          )}
 
-            {/* Quick links */}
-            <div
-              style={{
-                width: 180,
-                minHeight: 260,
-                border: "1px solid var(--border)",
-                background: "var(--surface)",
-                padding: "1.5rem",
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.5rem",
-                position: "relative",
-              }}
-            >
-              <div
-                style={{
-                  position: "absolute",
-                  top: "0.5rem",
-                  right: "0.75rem",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.55rem",
-                  color: "var(--text-dim)",
-                  letterSpacing: "0.1em",
-                  opacity: 0.5,
-                }}
-              >
-                SYS::LINKS
-              </div>
-              <div
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "0.85rem",
-                  fontWeight: 700,
-                  color: "var(--text)",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  borderBottom: "1px solid var(--border)",
-                  paddingBottom: "0.75rem",
-                  marginBottom: "0.25rem",
-                }}
-              >
-                Quick Access
-              </div>
-              {[
-                { href: "/leaderboard", label: "Leaderboard" },
-                { href: "/about", label: "Tutorial" },
-                { href: "/guidelines", label: "Guidelines" },
-              ].map((item) => (
-                <Link key={item.href} href={item.href}>
-                  <div
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.75rem",
-                      color: "var(--text-dim)",
-                      padding: "0.5rem 0.5rem",
-                      borderLeft: "2px solid var(--border)",
-                      transition: "all 150ms",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.4rem",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.borderLeftColor =
-                        "var(--accent)";
-                      (e.currentTarget as HTMLElement).style.color =
-                        "var(--text-bright)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.borderLeftColor =
-                        "var(--border)";
-                      (e.currentTarget as HTMLElement).style.color =
-                        "var(--text-dim)";
-                    }}
-                  >
-                    <span style={{ color: "var(--accent-dim)" }}>&gt;</span>
-                    {item.label}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
+          {/* TAB 2A: RANKS / LEADERBOARD (Placeholder) */}
+          {activeCam === "2A" && (
+             <div style={{ background: "rgba(0,0,0,0.8)", border: "1px solid white", padding: "2rem", color: "white", fontFamily: "monospace", animation: "blink 0.1s 2" }}>
+                <h2 style={{ borderBottom: "2px solid white", paddingBottom: "10px" }}>CAMERA 2A: LEADERBOARD OVERRIDE</h2>
+                <p style={{ color: "red", marginTop: "20px" }}>&gt; ERROR: CONNECTION SEVERED. DATA AWAITING RECOVERY...</p>
+             </div>
+          )}
 
           {showPopup && questionData && (
             <QuestionPopup
@@ -622,7 +560,6 @@ export default function Page() {
               onClose={() => setShowPopup(false)}
               onNextLevel={async (nextLevel: number) => {
                 setCurrentLevel(nextLevel);
-                // Re-fetch the new question from server
                 setShowPopup(false);
                 setTimeout(() => fetchAndShowQuestion(), 300);
               }}
