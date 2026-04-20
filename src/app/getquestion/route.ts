@@ -1,6 +1,5 @@
 import { auth } from "@/server/auth";
 import { prisma } from "@/server/db";
-import { getPublicQuestion } from "@/server/questions";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -11,6 +10,7 @@ export async function GET() {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
+  // We can fetch the user and their school in one go
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
     include: { School: true },
@@ -35,7 +35,18 @@ export async function GET() {
   }
 
   const level = user.School.level;
-  const question = getPublicQuestion(level);
+
+  // FETCH SECURELY FROM DATABASE
+  // By using `select`, Prisma ensures the `answer` is never even loaded into memory here
+  const question = await prisma.question.findUnique({
+    where: { level: level },
+    select: {
+      level: true,
+      content: true,
+      img: true,
+      // Notice we DO NOT select `answer` here!
+    },
+  });
 
   if (!question) {
     return NextResponse.json(

@@ -1,6 +1,5 @@
 import { auth } from "@/server/auth";
 import { prisma } from "@/server/db";
-import { getQuestion, TOTAL_LEVELS } from "@/server/questions";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -76,16 +75,22 @@ export async function POST(req: Request) {
 
   const currentLevel = user.School.level;
 
+  // FETCH TOTAL LEVELS DYNAMICALLY FROM DATABASE
+  const totalLevels = await prisma.question.count();
+
   // Hunt finished
-  if (currentLevel > TOTAL_LEVELS) {
+  if (currentLevel > totalLevels) {
     return NextResponse.json(
       { error: "You have completed all levels!" },
       { status: 400 },
     );
   }
 
-  // Get correct answer SERVER-SIDE ONLY
-  const questionData = getQuestion(currentLevel);
+  // GET CORRECT ANSWER FROM DATABASE
+  const questionData = await prisma.question.findUnique({
+    where: { level: currentLevel },
+    select: { answer: true }, // We only need the answer to check against
+  });
 
   if (!questionData) {
     return NextResponse.json(
@@ -113,61 +118,6 @@ export async function POST(req: Request) {
   }
 
   // ── Correct answer path ──────────────────────────────────────────────────
-
-  // Check if this school already answered this level correctly
-  const schoolAlreadySolved = await prisma.attempt.findFirst({
-    where: {
-      level: currentLevel,
-      schoolCode: user.schoolCode,
-      userAttempt: {
-        equals: questionData.answer,
-        mode: "insensitive",
-      },
-      // Exclude the attempt we just created by checking createdAt < now-1s
-      // (We already created the new attempt above, so count > 1 means previously solved)
-    },
-  });
-
-  // Count distinct schools that solved this level (for scoring position)
-  const solverCount = await prisma.attempt.groupBy({
-    by: ["schoolCode"],
-    where: {
-      level: currentLevel,
-      userAttempt: {
-        equals: questionData.answer,
-        mode: "insensitive",
-      },
-    },
-  });
-
-  // If school solved it before, just advance their level (no extra score)
-  // solverCount includes this school now since we inserted the attempt
-  const schoolIndex = solverCount.findIndex(
-    (s) => s.schoolCode === user.schoolCode,
-  );
-  const isFirstSolveForSchool =
-    schoolIndex === 0 ||
-    !(await prisma.attempt
-      .findFirst({
-        where: {
-          level: currentLevel,
-          schoolCode: user.schoolCode,
-          userAttempt: { equals: questionData.answer, mode: "insensitive" },
-          // find an attempt before the one we just created
-          id: { not: undefined },
-        },
-      })
-      .then(async (a) => {
-        // Check if there was a prior correct attempt (before this one)
-        const priorCorrect = await prisma.attempt.count({
-          where: {
-            level: currentLevel,
-            schoolCode: user.schoolCode,
-            userAttempt: { equals: questionData.answer, mode: "insensitive" },
-          },
-        });
-        return priorCorrect > 1; // more than 1 means a prior one existed
-      }));
 
   const priorCorrectCount = await prisma.attempt.count({
     where: {
@@ -207,6 +157,6 @@ export async function POST(req: Request) {
   return NextResponse.json({
     success: true,
     nextLevel,
-    isComplete: nextLevel > TOTAL_LEVELS,
+    isComplete: nextLevel > totalLevels,
   });
 }
